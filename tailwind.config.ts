@@ -13,12 +13,26 @@ export default {
       },
     },
     extend: {
+      fontFamily: {
+        quran: ['"Amiri Quran"', '"Amiri"', 'serif'],
+        amiri: ['"Amiri"', 'serif'],
+      },
       colors: {
         border: "hsl(var(--border))",
         input: "hsl(var(--input))",
         ring: "hsl(var(--ring))",
         background: "hsl(var(--background))",
         foreground: "hsl(var(--foreground))",
+        gold: {
+          DEFAULT: "hsl(46 67% 52%)",
+          light: "hsl(46 67% 70%)",
+          dark: "hsl(46 67% 40%)",
+        },
+        royal: {
+          DEFAULT: "hsl(160 86% 16%)",
+          light: "hsl(160 60% 25%)",
+          dark: "hsl(160 86% 10%)",
+        },
         primary: {
           DEFAULT: "hsl(var(--primary))",
           foreground: "hsl(var(--primary-foreground))",

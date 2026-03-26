@@ -1,0 +1,20 @@
+{
+  "name": "إتقان - تعلم القرآن الكريم",
+  "short_name": "إتقان",
+  "description": "تطبيق تعلم القرآن الكريم برواية ورش مع تحليل التجويد",
+  "start_url": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#FEF7E8",
+  "theme_color": "#064E3B",
+  "dir": "rtl",
+  "lang": "ar",
+  "icons": [
+    {
+      "src": "/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}
