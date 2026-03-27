@@ -25,10 +25,41 @@ export interface QuranData {
   totalPages: number;
 }
 
-export async function fetchQuranData(): Promise<QuranData> {
-  const res = await fetch('https://api.alquran.cloud/v1/quran/ar.warsh');
-  if (!res.ok) throw new Error('فشل في تحميل بيانات المصحف');
+const PRIMARY_API = 'https://api.alquran.cloud/v1/quran/ar.warsh';
+const FALLBACK_API = 'https://cdn.jsdelivr.net/npm/quran-json@latest/dist/quran_warsh.json';
+
+async function fetchFromPrimary(): Promise<any> {
+  const res = await fetch(PRIMARY_API);
+  if (!res.ok) throw new Error('Primary API failed');
   const json = await res.json();
+  return json.data.surahs;
+}
+
+async function fetchFromFallback(): Promise<any> {
+  const res = await fetch(FALLBACK_API);
+  if (!res.ok) throw new Error('Fallback API failed');
+  const json = await res.json();
+  // The fallback format may differ - normalize it
+  if (Array.isArray(json)) return json;
+  if (json.data?.surahs) return json.data.surahs;
+  if (json.surahs) return json.surahs;
+  throw new Error('Unknown fallback format');
+}
+
+export async function fetchQuranData(): Promise<QuranData> {
+  let rawSurahs: any[];
+
+  try {
+    rawSurahs = await fetchFromPrimary();
+  } catch (primaryErr) {
+    console.warn('Primary API failed, trying fallback...', primaryErr);
+    try {
+      rawSurahs = await fetchFromFallback();
+    } catch (fallbackErr) {
+      console.error('Both APIs failed', fallbackErr);
+      throw new Error('فشل في تحميل بيانات المصحف من جميع المصادر. يرجى تحديث الصفحة.');
+    }
+  }
 
   const surahs: Surah[] = [];
   const pageMap = new Map<number, Ayah[]>();
@@ -36,33 +67,45 @@ export async function fetchQuranData(): Promise<QuranData> {
   const surahFirstPage = new Map<number, number>();
   let maxPage = 1;
 
-  for (const s of json.data.surahs) {
-    const firstAyahPage = s.ayahs[0]?.page || 1;
+  for (const s of rawSurahs) {
+    const ayahsList = s.ayahs || s.verses || [];
+    const firstAyahPage = ayahsList[0]?.page || 1;
+
     surahs.push({
       number: s.number,
       name: s.name,
-      englishName: s.englishName,
-      revelationType: s.revelationType,
-      numberOfAyahs: s.numberOfAyahs,
+      englishName: s.englishName || s.english_name || '',
+      revelationType: s.revelationType || s.revelation_type || '',
+      numberOfAyahs: s.numberOfAyahs || ayahsList.length,
       firstPage: firstAyahPage,
     });
     surahFirstPage.set(s.number, firstAyahPage);
 
-    for (const a of s.ayahs) {
+    for (const a of ayahsList) {
+      const ayahPage = a.page || 1;
+      const ayahJuz = a.juz || 1;
+
       const ayah: Ayah = {
         number: a.number,
         text: a.text,
-        numberInSurah: a.numberInSurah,
-        juz: a.juz,
-        page: a.page,
+        numberInSurah: a.numberInSurah ?? a.number_in_surah ?? a.verse ?? 0,
+        juz: ayahJuz,
+        page: ayahPage,
         surahNumber: s.number,
         surahName: s.name,
       };
-      if (!pageMap.has(a.page)) pageMap.set(a.page, []);
-      pageMap.get(a.page)!.push(ayah);
-      if (!juzFirstPage.has(a.juz)) juzFirstPage.set(a.juz, a.page);
-      if (a.page > maxPage) maxPage = a.page;
+
+      if (!pageMap.has(ayahPage)) pageMap.set(ayahPage, []);
+      pageMap.get(ayahPage)!.push(ayah);
+      if (!juzFirstPage.has(ayahJuz)) juzFirstPage.set(ayahJuz, ayahPage);
+      if (ayahPage > maxPage) maxPage = ayahPage;
     }
+  }
+
+  // Validate data completeness
+  console.log(`Quran data loaded: ${surahs.length} surahs, ${maxPage} pages`);
+  if (surahs.length !== 114) {
+    console.warn(`Expected 114 surahs but got ${surahs.length}`);
   }
 
   return { surahs, pageMap, juzFirstPage, surahFirstPage, totalPages: maxPage };
