@@ -54,7 +54,7 @@ export function SurahDrawer({ open, onClose, surahs, onSelectSurah }: SurahDrawe
                   </div>
                 </div>
                 <span className="text-xs text-muted-foreground">
-                  ص {toArabicNumeral(s.firstPage)}
+                  {s.firstPage ? `ص ${toArabicNumeral(s.firstPage)}` : ''}
                 </span>
               </button>
             ))}
