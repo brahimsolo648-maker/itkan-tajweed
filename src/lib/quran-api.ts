@@ -68,7 +68,8 @@ export async function fetchQuranData(): Promise<QuranData> {
   return { surahs, pageMap, juzFirstPage, surahFirstPage, totalPages: maxPage };
 }
 
-export function toArabicNumeral(n: number): string {
+export function toArabicNumeral(n: number | undefined | null): string {
+  if (n == null) return '';
   return n.toString().replace(/\d/g, (d) => '٠١٢٣٤٥٦٧٨٩'[parseInt(d)]);
 }
 
