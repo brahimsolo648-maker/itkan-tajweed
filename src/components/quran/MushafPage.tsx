@@ -56,6 +56,7 @@ export function MushafPage({
   }, []);
 
   return (
+    <>
     <div className="mushaf-page px-3 py-4 sm:px-6 sm:py-6">
       {ayahs.map((ayah, idx) => {
         const isNewSurah = surahStarts.has(ayah.number);
@@ -130,6 +131,7 @@ export function MushafPage({
       })}
     </div>
       {pageNumber && (
+      {pageNumber != null && (
         <div className="text-center py-2 text-sm text-muted-foreground font-amiri">
           صفحة {toArabicNumeral(pageNumber)}
         </div>
