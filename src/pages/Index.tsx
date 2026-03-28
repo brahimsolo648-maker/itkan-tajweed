@@ -53,7 +53,7 @@ const Index = () => {
     () => localStorage.getItem('itqan-dark') === 'true'
   );
   const [reciter, setReciter] = useState<ReciterId>(
-    () => (localStorage.getItem('itqan-reciter') as ReciterId) || 'alaa'
+    () => (localStorage.getItem('itqan-reciter') as ReciterId) || 'husary'
   );
   const [fontSize, setFontSize] = useState(
     () => Number(localStorage.getItem('itqan-font-size')) || 26
@@ -275,7 +275,6 @@ const Index = () => {
                 });
                 setCurrentView('recording');
               }}
-              onListenAyah={(ayah) => playSurahAudio(ayah.surahNumber)}
               onListenAyah={(ayah) => playAyahAudio(ayah.surahNumber, ayah.numberInSurah)}
             />
 
