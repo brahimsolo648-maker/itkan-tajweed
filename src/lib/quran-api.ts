@@ -28,6 +28,23 @@ export interface QuranData {
 const PRIMARY_API = 'https://api.alquran.cloud/v1/quran/ar.warsh';
 const FALLBACK_API = 'https://cdn.jsdelivr.net/npm/quran-json@latest/dist/quran_warsh.json';
 
+// البسملة كما ترد في بداية الآية الأولى من كل سورة (عدا الفاتحة والتوبة)
+const BISMILLAH_PREFIX = 'بِسْمِ اللَّهِ الرَّحْمَٰنِ الرَّحِيمِ';
+
+/**
+ * Strip البسملة from the beginning of ayah 1 text for surahs other than الفاتحة and التوبة.
+ * The API concatenates بسملة with the first ayah text.
+ */
+export function stripBismillah(text: string, surahNumber: number, numberInSurah: number): string {
+  if (numberInSurah !== 1 || surahNumber === 1 || surahNumber === 9) return text;
+  // Remove BOM if present
+  let cleaned = text.replace(/^\uFEFF/, '');
+  if (cleaned.startsWith(BISMILLAH_PREFIX)) {
+    cleaned = cleaned.slice(BISMILLAH_PREFIX.length).trim();
+  }
+  return cleaned;
+}
+
 async function fetchFromPrimary(): Promise<any> {
   const res = await fetch(PRIMARY_API);
   if (!res.ok) throw new Error('Primary API failed');
@@ -121,14 +138,21 @@ export function padSurahNumber(n: number): string {
 }
 
 export const RECITERS = {
-  alaa: { name: 'آلاء', baseUrl: 'https://server7.mp3quran.net/alaa/' },
-  huthfi_w: { name: 'أحمد الحذيفي', baseUrl: 'https://server8.mp3quran.net/huthfi_w/' },
-  ayub_w: { name: 'محمد أيوب', baseUrl: 'https://server8.mp3quran.net/ayub_w/' },
-  qazabri: { name: 'عمر القزابري', baseUrl: 'https://server13.mp3quran.net/qazabri/' },
+  husary: { name: 'محمود خليل الحصري', folder: 'Husary_64kbps' },
+  abdulbasit: { name: 'عبد الباسط عبد الصمد', folder: 'Abdul_Basit_Murattal_64kbps' },
+  alafasy: { name: 'مشاري العفاسي', folder: 'Alafasy_64kbps' },
+  minshawi: { name: 'محمد صديق المنشاوي', folder: 'Minshawy_Murattal_128kbps' },
 } as const;
 
 export type ReciterId = keyof typeof RECITERS;
 
+export function getAyahAudioUrl(reciter: ReciterId, surahNumber: number, ayahNumber: number): string {
+  const s = surahNumber.toString().padStart(3, '0');
+  const a = ayahNumber.toString().padStart(3, '0');
+  return `https://everyayah.com/data/${RECITERS[reciter].folder}/${s}${a}.mp3`;
+}
+
 export function getSurahAudioUrl(reciter: ReciterId, surahNumber: number): string {
-  return `${RECITERS[reciter].baseUrl}${padSurahNumber(surahNumber)}.mp3`;
+  // Play first ayah as fallback for full surah
+  return getAyahAudioUrl(reciter, surahNumber, 1);
 }
