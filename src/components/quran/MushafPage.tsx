@@ -130,7 +130,6 @@ export function MushafPage({
         );
       })}
     </div>
-      {pageNumber && (
       {pageNumber != null && (
         <div className="text-center py-2 text-sm text-muted-foreground font-amiri">
           صفحة {toArabicNumeral(pageNumber)}
