@@ -1,4 +1,4 @@
-import { Ayah, toArabicNumeral } from '@/lib/quran-api';
+import { Ayah, toArabicNumeral, stripBismillah } from '@/lib/quran-api';
 import { useRef, useState, useCallback } from 'react';
 
 interface MushafPageProps {
@@ -8,6 +8,9 @@ interface MushafPageProps {
   onAyahLongPress?: (ayah: Ayah, rect: DOMRect) => void;
   onRecordAyah?: (ayah: Ayah) => void;
   onListenAyah?: (ayah: Ayah) => void;
+  hiddenAyahs?: Set<number>;
+  onToggleHidden?: (ayahNumber: number) => void;
+  pageNumber?: number;
 }
 
 export function MushafPage({
@@ -17,6 +20,9 @@ export function MushafPage({
   onAyahLongPress,
   onRecordAyah,
   onListenAyah,
+  hiddenAyahs,
+  onToggleHidden,
+  pageNumber,
 }: MushafPageProps) {
   const longPressTimer = useRef<ReturnType<typeof setTimeout>>();
   const [pressedAyah, setPressedAyah] = useState<number | null>(null);
@@ -50,6 +56,7 @@ export function MushafPage({
   }, []);
 
   return (
+    <>
     <div className="mushaf-page px-3 py-4 sm:px-6 sm:py-6">
       {ayahs.map((ayah, idx) => {
         const isNewSurah = surahStarts.has(ayah.number);
@@ -63,28 +70,43 @@ export function MushafPage({
                 </span>
               </div>
             )}
-            {/* Bismillah for surahs (except Al-Fatiha ayah 1 which is itself bismillah, and At-Tawbah) */}
+            {/* Bismillah for surahs (except Al-Fatiha and At-Tawbah) */}
             {isNewSurah && ayah.surahNumber !== 1 && ayah.surahNumber !== 9 && (
               <div className="bismillah-text my-2">
                 بِسْمِ ٱللَّهِ ٱلرَّحْمَٰنِ ٱلرَّحِيمِ
               </div>
             )}
-            <span
-              className={`ayah-text inline cursor-pointer transition-colors ${
-                pressedAyah === ayah.number
-                  ? 'bg-accent/30 rounded'
-                  : ''
-              }`}
-              style={{ fontSize: `${fontSize}px` }}
-              onPointerDown={(e) => handlePointerDown(ayah, e)}
-              onPointerUp={handlePointerUp}
-              onPointerCancel={handlePointerUp}
-            >
-              {ayah.text}
-              <span className="ayah-number">
-                {toArabicNumeral(ayah.numberInSurah)}
+            {hiddenAyahs?.has(ayah.number) ? (
+              <span
+                className="ayah-text inline cursor-pointer"
+                style={{ fontSize: `${fontSize}px` }}
+                onClick={() => onToggleHidden?.(ayah.number)}
+              >
+                <span className="inline-block bg-muted rounded px-2 py-1 text-muted-foreground text-sm font-amiri">
+                  ••• اضغط لإظهار الآية •••
+                </span>
+                <span className="ayah-number">
+                  {toArabicNumeral(ayah.numberInSurah)}
+                </span>
               </span>
-            </span>
+            ) : (
+              <span
+                className={`ayah-text inline cursor-pointer transition-colors ${
+                  pressedAyah === ayah.number
+                    ? 'bg-accent/30 rounded'
+                    : ''
+                }`}
+                style={{ fontSize: `${fontSize}px` }}
+                onPointerDown={(e) => handlePointerDown(ayah, e)}
+                onPointerUp={handlePointerUp}
+                onPointerCancel={handlePointerUp}
+              >
+                {stripBismillah(ayah.text, ayah.surahNumber, ayah.numberInSurah)}
+                <span className="ayah-number">
+                  {toArabicNumeral(ayah.numberInSurah)}
+                </span>
+              </span>
+            )}
 
             {learningMode && (
               <div className="inline-flex gap-1 mx-1 align-middle">
@@ -108,5 +130,11 @@ export function MushafPage({
         );
       })}
     </div>
+      {pageNumber != null && (
+        <div className="text-center py-2 text-sm text-muted-foreground font-amiri">
+          صفحة {toArabicNumeral(pageNumber)}
+        </div>
+      )}
+    </>
   );
 }

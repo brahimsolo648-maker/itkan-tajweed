@@ -1,55 +1,38 @@
-const API_KEY = 'AIzaSyC-IiWxvqu9lsaT1omvE_yWZogVTz_DTOM';
-const MODEL = 'gemini-2.5-flash';
-const ENDPOINT = `https://generativelanguage.googleapis.com/v1beta/models/${MODEL}:generateContent?key=${API_KEY}`;
-
 export interface TajweedAnalysis {
   score: number;
   words: { word: string; correct: boolean; correction?: string }[];
   feedback: string;
 }
 
+const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
+const SUPABASE_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+
 export async function analyzeTajweed(
   originalText: string,
   userText: string
 ): Promise<TajweedAnalysis> {
-  const prompt = `قارن بين النصين التاليين:
-النص الأصلي: ${originalText}
-نص المستخدم: ${userText}
-
-حدد الأخطاء في مخارج الحروف والصفات والمدود، وأعط التصحيح لكل خطأ بأسلوب تعليمي بسيط.
-
-أعد الإجابة بصيغة JSON فقط بالشكل التالي:
-{
-  "score": رقم من 0 إلى 100 يمثل نسبة الإتقان,
-  "words": [{"word": "الكلمة", "correct": true أو false, "correction": "التصحيح إن وجد"}],
-  "feedback": "ملاحظات عامة وتوجيهات"
-}`;
-
   try {
-    const res = await fetch(ENDPOINT, {
+    const res = await fetch(`${SUPABASE_URL}/functions/v1/analyze-tajweed`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        contents: [{ parts: [{ text: prompt }] }],
-        generationConfig: {
-          responseMimeType: 'application/json',
-        },
-      }),
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${SUPABASE_KEY}`,
+      },
+      body: JSON.stringify({ originalText, userText }),
     });
 
-    if (!res.ok) throw new Error('فشل الاتصال بخدمة التحليل');
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.error || 'فشل الاتصال بخدمة التحليل');
+    }
 
-    const data = await res.json();
-    const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
-    if (!text) throw new Error('لم يتم استلام نتيجة التحليل');
-
-    return JSON.parse(text) as TajweedAnalysis;
+    return await res.json() as TajweedAnalysis;
   } catch (error) {
-    console.error('Gemini analysis error:', error);
+    console.error('Tajweed analysis error:', error);
     return {
       score: 0,
       words: [],
-      feedback: 'حدث خطأ أثناء تحليل التلاوة. يرجى المحاولة مرة أخرى.',
+      feedback: error instanceof Error ? error.message : 'حدث خطأ أثناء تحليل التلاوة. يرجى المحاولة مرة أخرى.',
     };
   }
 }

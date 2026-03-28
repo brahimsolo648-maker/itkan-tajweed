@@ -4,7 +4,7 @@ import {
   type QuranData,
   type Ayah,
   type ReciterId,
-  getSurahAudioUrl,
+  getAyahAudioUrl,
   toArabicNumeral,
 } from '@/lib/quran-api';
 import { useAutoHide } from '@/hooks/use-auto-hide';
@@ -53,7 +53,7 @@ const Index = () => {
     () => localStorage.getItem('itqan-dark') === 'true'
   );
   const [reciter, setReciter] = useState<ReciterId>(
-    () => (localStorage.getItem('itqan-reciter') as ReciterId) || 'alaa'
+    () => (localStorage.getItem('itqan-reciter') as ReciterId) || 'husary'
   );
   const [fontSize, setFontSize] = useState(
     () => Number(localStorage.getItem('itqan-font-size')) || 26
@@ -62,6 +62,16 @@ const Index = () => {
     () => Number(localStorage.getItem('itqan-speed')) || 1
   );
   const [learningMode, setLearningMode] = useState(false);
+
+  // Hidden ayahs for test mode
+  const [hiddenAyahs, setHiddenAyahs] = useState<Set<number>>(new Set());
+
+  // Tajweed target ayah
+  const [tajweedTarget, setTajweedTarget] = useState<{
+    text: string;
+    surahName: string;
+    ayahNumber: number;
+  } | null>(null);
 
   // Audio
   const audioRef = useRef<HTMLAudioElement | null>(null);
@@ -152,10 +162,10 @@ const Index = () => {
     [nextPage, prevPage]
   );
 
-  // Play surah audio
-  const playSurahAudio = useCallback(
-    (surahNumber: number) => {
-      const url = getSurahAudioUrl(reciter, surahNumber);
+  // Play ayah audio
+  const playAyahAudio = useCallback(
+    (surahNumber: number, ayahNumber: number) => {
+      const url = getAyahAudioUrl(reciter, surahNumber, ayahNumber);
       if (audioRef.current) {
         audioRef.current.pause();
       }
@@ -247,6 +257,16 @@ const Index = () => {
               fontSize={fontSize}
               learningMode={learningMode}
               onAyahLongPress={handleAyahLongPress}
+              hiddenAyahs={hiddenAyahs}
+              onToggleHidden={(num) => {
+                setHiddenAyahs(prev => {
+                  const next = new Set(prev);
+                  if (next.has(num)) next.delete(num);
+                  else next.add(num);
+                  return next;
+                });
+              }}
+              pageNumber={currentPage}
               onRecordAyah={(ayah) => {
                 setRecordingTarget({
                   text: ayah.text,
@@ -255,7 +275,7 @@ const Index = () => {
                 });
                 setCurrentView('recording');
               }}
-              onListenAyah={(ayah) => playSurahAudio(ayah.surahNumber)}
+              onListenAyah={(ayah) => playAyahAudio(ayah.surahNumber, ayah.numberInSurah)}
             />
 
             {/* Page navigation arrows */}
@@ -321,7 +341,13 @@ const Index = () => {
           </>
         )}
 
-        {currentView === 'tajweed' && <TajweedPage />}
+        {currentView === 'tajweed' && (
+          <TajweedPage
+            ayahText={tajweedTarget?.text}
+            surahName={tajweedTarget?.surahName}
+            ayahNumber={tajweedTarget?.ayahNumber}
+          />
+        )}
 
         {currentView === 'recording' && (
           <RecordingPanel
@@ -395,7 +421,7 @@ const Index = () => {
           ayah={contextMenu.ayah}
           position={contextMenu.position}
           onClose={() => setContextMenu(null)}
-          onListen={() => playSurahAudio(contextMenu.ayah.surahNumber)}
+          onListen={() => playAyahAudio(contextMenu.ayah.surahNumber, contextMenu.ayah.numberInSurah)}
           onRecord={() => {
             setRecordingTarget({
               text: contextMenu.ayah.text,
@@ -404,10 +430,20 @@ const Index = () => {
             });
             setCurrentView('recording');
           }}
-          onTajweed={() => setCurrentView('tajweed')}
+          onTajweed={() => {
+            setTajweedTarget({
+              text: contextMenu.ayah.text,
+              surahName: contextMenu.ayah.surahName,
+              ayahNumber: contextMenu.ayah.numberInSurah,
+            });
+            setCurrentView('tajweed');
+          }}
           onTest={() => {
-            // Simple test: alert with ayah hidden
-            alert('حاول ترديد الآية من الذاكرة ثم تحقق!');
+            setHiddenAyahs(prev => {
+              const next = new Set(prev);
+              next.add(contextMenu.ayah.number);
+              return next;
+            });
           }}
         />
       )}
