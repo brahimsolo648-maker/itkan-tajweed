@@ -3,6 +3,7 @@ export interface Ayah {
   text: string;
   numberInSurah: number;
   juz: number;
+  hizbQuarter: number;
   page: number;
   surahNumber: number;
   surahName: string;
@@ -28,16 +29,10 @@ export interface QuranData {
 const PRIMARY_API = 'https://api.alquran.cloud/v1/quran/ar.warsh';
 const FALLBACK_API = 'https://cdn.jsdelivr.net/npm/quran-json@latest/dist/quran_warsh.json';
 
-// البسملة كما ترد في بداية الآية الأولى من كل سورة (عدا الفاتحة والتوبة)
 const BISMILLAH_PREFIX = 'بِسْمِ اللَّهِ الرَّحْمَٰنِ الرَّحِيمِ';
 
-/**
- * Strip البسملة from the beginning of ayah 1 text for surahs other than الفاتحة and التوبة.
- * The API concatenates بسملة with the first ayah text.
- */
 export function stripBismillah(text: string, surahNumber: number, numberInSurah: number): string {
   if (numberInSurah !== 1 || surahNumber === 1 || surahNumber === 9) return text;
-  // Remove BOM if present
   let cleaned = text.replace(/^\uFEFF/, '');
   if (cleaned.startsWith(BISMILLAH_PREFIX)) {
     cleaned = cleaned.slice(BISMILLAH_PREFIX.length).trim();
@@ -56,7 +51,6 @@ async function fetchFromFallback(): Promise<any> {
   const res = await fetch(FALLBACK_API);
   if (!res.ok) throw new Error('Fallback API failed');
   const json = await res.json();
-  // The fallback format may differ - normalize it
   if (Array.isArray(json)) return json;
   if (json.data?.surahs) return json.data.surahs;
   if (json.surahs) return json.surahs;
@@ -101,12 +95,14 @@ export async function fetchQuranData(): Promise<QuranData> {
     for (const a of ayahsList) {
       const ayahPage = a.page || 1;
       const ayahJuz = a.juz || 1;
+      const hizbQuarter = a.hizbQuarter || Math.ceil(ayahJuz * 4);
 
       const ayah: Ayah = {
         number: a.number,
         text: a.text,
         numberInSurah: a.numberInSurah ?? a.number_in_surah ?? a.verse ?? 0,
         juz: ayahJuz,
+        hizbQuarter,
         page: ayahPage,
         surahNumber: s.number,
         surahName: s.name,
@@ -119,7 +115,6 @@ export async function fetchQuranData(): Promise<QuranData> {
     }
   }
 
-  // Validate data completeness
   console.log(`Quran data loaded: ${surahs.length} surahs, ${maxPage} pages`);
   if (surahs.length !== 114) {
     console.warn(`Expected 114 surahs but got ${surahs.length}`);
@@ -137,22 +132,48 @@ export function padSurahNumber(n: number): string {
   return n.toString().padStart(3, '0');
 }
 
+// Hizb quarter label
+export function getHizbQuarterLabel(hizbQuarter: number): string {
+  const hizb = Math.ceil(hizbQuarter / 4);
+  const quarter = ((hizbQuarter - 1) % 4);
+  const quarterNames = ['', 'ربع', 'نصف', 'ثلاثة أرباع'];
+  if (quarter === 0) return `الحزب ${toArabicNumeral(hizb)}`;
+  return `${quarterNames[quarter]} الحزب ${toArabicNumeral(hizb)}`;
+}
+
+// ============ Warsh-only reciters ============
 export const RECITERS = {
-  husary: { name: 'محمود خليل الحصري', folder: 'Husary_64kbps' },
-  abdulbasit: { name: 'عبد الباسط عبد الصمد', folder: 'Abdul_Basit_Murattal_64kbps' },
-  alafasy: { name: 'مشاري العفاسي', folder: 'Alafasy_64kbps' },
-  minshawi: { name: 'محمد صديق المنشاوي', folder: 'Minshawy_Murattal_128kbps' },
+  alaa: {
+    name: 'العين آلاء',
+    baseUrl: 'https://server7.mp3quran.net/alaa/',
+    type: 'surah' as const,
+  },
+  hudhaify_warsh: {
+    name: 'أحمد الحذيفي (ورش)',
+    baseUrl: 'https://server8.mp3quran.net/huthfi_w/',
+    type: 'surah' as const,
+  },
+  agmy: {
+    name: 'ياسين الجزائري (ورش)',
+    baseUrl: 'https://server11.mp3quran.net/yasser/',
+    type: 'surah' as const,
+  },
+  warsh_ibrahim: {
+    name: 'إبراهيم الدوسري (ورش)',
+    baseUrl: 'https://server6.mp3quran.net/warsh/',
+    type: 'surah' as const,
+  },
 } as const;
 
 export type ReciterId = keyof typeof RECITERS;
 
-export function getAyahAudioUrl(reciter: ReciterId, surahNumber: number, ayahNumber: number): string {
+export function getSurahAudioUrl(reciter: ReciterId, surahNumber: number): string {
+  const r = RECITERS[reciter];
   const s = surahNumber.toString().padStart(3, '0');
-  const a = ayahNumber.toString().padStart(3, '0');
-  return `https://everyayah.com/data/${RECITERS[reciter].folder}/${s}${a}.mp3`;
+  return `${r.baseUrl}${s}.mp3`;
 }
 
-export function getSurahAudioUrl(reciter: ReciterId, surahNumber: number): string {
-  // Play first ayah as fallback for full surah
-  return getAyahAudioUrl(reciter, surahNumber, 1);
+// For ayah-level, we use surah audio (no per-ayah Warsh sources available)
+export function getAyahAudioUrl(reciter: ReciterId, surahNumber: number, _ayahNumber: number): string {
+  return getSurahAudioUrl(reciter, surahNumber);
 }

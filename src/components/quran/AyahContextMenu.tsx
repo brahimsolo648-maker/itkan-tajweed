@@ -21,23 +21,22 @@ export function AyahContextMenu({
   onTest,
 }: AyahContextMenuProps) {
   const items = [
-    { label: 'استماع للقارئ', icon: Volume2, action: onListen },
-    { label: 'أحكام التجويد', icon: BookOpen, action: onTajweed },
-    { label: 'اختبار الآية', icon: EyeOff, action: onTest },
-    { label: 'تسجيل الآية', icon: Mic, action: onRecord },
+    { label: 'استماع', icon: Volume2, action: onListen },
+    { label: 'تجويد', icon: BookOpen, action: onTajweed },
+    { label: 'إخفاء', icon: EyeOff, action: onTest },
+    { label: 'تسجيل', icon: Mic, action: onRecord },
   ];
 
-  // Position menu within viewport
   const style: React.CSSProperties = {
-    top: Math.min(position.y, window.innerHeight - 200),
-    left: Math.min(Math.max(position.x - 80, 8), window.innerWidth - 168),
+    top: Math.min(position.y, window.innerHeight - 180),
+    left: Math.min(Math.max(position.x - 70, 8), window.innerWidth - 148),
   };
 
   return (
     <>
       <div className="fixed inset-0 z-50" onClick={onClose} />
       <div
-        className="fixed z-50 bg-card border border-border rounded-xl shadow-2xl overflow-hidden w-40"
+        className="fixed z-50 bg-card/95 backdrop-blur-sm border border-border rounded-xl shadow-2xl overflow-hidden w-36 animate-scale-in"
         style={style}
       >
         {items.map(({ label, icon: Icon, action }) => (
@@ -47,10 +46,10 @@ export function AyahContextMenu({
               action();
               onClose();
             }}
-            className="w-full flex items-center gap-2 px-3 py-2.5 hover:bg-muted transition-colors text-right"
+            className="w-full flex items-center gap-2 px-3 py-2 hover:bg-muted transition-colors text-right"
           >
-            <Icon size={16} className="text-accent flex-shrink-0" />
-            <span className="text-sm font-amiri text-foreground">{label}</span>
+            <Icon size={14} className="text-accent flex-shrink-0" />
+            <span className="text-xs font-amiri text-foreground">{label}</span>
           </button>
         ))}
       </div>

@@ -4,7 +4,7 @@ import {
   type QuranData,
   type Ayah,
   type ReciterId,
-  getAyahAudioUrl,
+  getSurahAudioUrl,
   toArabicNumeral,
 } from '@/lib/quran-api';
 import { useAutoHide } from '@/hooks/use-auto-hide';
@@ -14,72 +14,70 @@ import { BottomNav, type ViewType } from '@/components/quran/BottomNav';
 import { SurahDrawer } from '@/components/quran/SurahDrawer';
 import { SettingsSheet } from '@/components/quran/SettingsSheet';
 import { TajweedPage } from '@/components/quran/TajweedPage';
-import { RecordingPanel } from '@/components/quran/RecordingPanel';
+import { InlineRecorder } from '@/components/quran/InlineRecorder';
 import { JuzList } from '@/components/quran/JuzList';
 import { AyahContextMenu } from '@/components/quran/AyahContextMenu';
-import { List, Layers, ChevronLeft, ChevronRight } from 'lucide-react';
+import { List, Layers } from 'lucide-react';
 
 const Index = () => {
-  // Data
   const [quranData, setQuranData] = useState<QuranData | null>(null);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState('');
 
-  // Navigation
   const [currentPage, setCurrentPage] = useState(1);
   const [currentView, setCurrentView] = useState<ViewType>('mushaf');
+  const [flipDirection, setFlipDirection] = useState<'left' | 'right' | null>(null);
 
-  // UI state
-  const { visible: showUI, toggle: toggleUI, show: showUIControls } = useAutoHide(3000);
+  const { visible: showUI, toggle: toggleUI } = useAutoHide(3000);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [juzOpen, setJuzOpen] = useState(false);
 
-  // Context menu
   const [contextMenu, setContextMenu] = useState<{
     ayah: Ayah;
     position: { x: number; y: number };
   } | null>(null);
 
-  // Recording target
+  // Inline recording
   const [recordingTarget, setRecordingTarget] = useState<{
     text: string;
     surahName: string;
     ayahNumber: number;
+    ayahGlobalNumber: number;
   } | null>(null);
 
-  // Settings (persisted)
+  // Tajweed word colors (ayah number -> word colors)
+  const [tajweedColors, setTajweedColors] = useState<
+    Map<number, { wordIndex: number; color: 'correct' | 'error' | 'current' | 'pending' }[]>
+  >(new Map());
+
+  // Settings
   const [darkMode, setDarkMode] = useState(
     () => localStorage.getItem('itqan-dark') === 'true'
   );
   const [reciter, setReciter] = useState<ReciterId>(
-    () => (localStorage.getItem('itqan-reciter') as ReciterId) || 'husary'
+    () => (localStorage.getItem('itqan-reciter') as ReciterId) || 'alaa'
   );
   const [fontSize, setFontSize] = useState(
-    () => Number(localStorage.getItem('itqan-font-size')) || 26
+    () => Number(localStorage.getItem('itqan-font-size')) || 24
   );
   const [playbackSpeed, setPlaybackSpeed] = useState(
     () => Number(localStorage.getItem('itqan-speed')) || 1
   );
-  const [learningMode, setLearningMode] = useState(false);
 
-  // Hidden ayahs for test mode
   const [hiddenAyahs, setHiddenAyahs] = useState<Set<number>>(new Set());
 
-  // Tajweed target ayah
   const [tajweedTarget, setTajweedTarget] = useState<{
     text: string;
     surahName: string;
     ayahNumber: number;
   } | null>(null);
 
-  // Audio
   const audioRef = useRef<HTMLAudioElement | null>(null);
-
-  // Swipe
   const touchStartX = useRef(0);
+  const touchStartY = useRef(0);
 
-  // Load Quran data
+  // Load Quran
   useEffect(() => {
     fetchQuranData()
       .then((data) => {
@@ -99,73 +97,75 @@ const Index = () => {
     document.documentElement.classList.toggle('dark', darkMode);
   }, [darkMode]);
 
-  useEffect(() => {
-    localStorage.setItem('itqan-reciter', reciter);
-  }, [reciter]);
+  useEffect(() => { localStorage.setItem('itqan-reciter', reciter); }, [reciter]);
+  useEffect(() => { localStorage.setItem('itqan-font-size', String(fontSize)); }, [fontSize]);
+  useEffect(() => { localStorage.setItem('itqan-speed', String(playbackSpeed)); }, [playbackSpeed]);
 
-  useEffect(() => {
-    localStorage.setItem('itqan-font-size', String(fontSize));
-  }, [fontSize]);
-
-  useEffect(() => {
-    localStorage.setItem('itqan-speed', String(playbackSpeed));
-  }, [playbackSpeed]);
-
-  // Get current page info
   const currentAyahs = quranData?.pageMap.get(currentPage) || [];
   const currentSurahName = currentAyahs[0]?.surahName || '';
   const currentJuz = currentAyahs[0]?.juz || 1;
 
-  // Navigate to surah
-  const goToSurah = useCallback(
-    (surahNumber: number) => {
-      if (!quranData) return;
-      const page = quranData.surahFirstPage.get(surahNumber);
-      if (page) setCurrentPage(page);
-    },
-    [quranData]
-  );
+  const goToSurah = useCallback((surahNumber: number) => {
+    if (!quranData) return;
+    const page = quranData.surahFirstPage.get(surahNumber);
+    if (page) {
+      setFlipDirection('right');
+      setCurrentPage(page);
+    }
+  }, [quranData]);
 
-  // Navigate to juz
-  const goToJuz = useCallback(
-    (juz: number) => {
-      if (!quranData) return;
-      const page = quranData.juzFirstPage.get(juz);
-      if (page) setCurrentPage(page);
-    },
-    [quranData]
-  );
+  const goToJuz = useCallback((juz: number) => {
+    if (!quranData) return;
+    const page = quranData.juzFirstPage.get(juz);
+    if (page) {
+      setFlipDirection('right');
+      setCurrentPage(page);
+    }
+  }, [quranData]);
 
-  // Page navigation
   const nextPage = useCallback(() => {
     if (!quranData) return;
+    setFlipDirection('right');
     setCurrentPage((p) => Math.min(p + 1, quranData.totalPages));
   }, [quranData]);
 
   const prevPage = useCallback(() => {
+    setFlipDirection('left');
     setCurrentPage((p) => Math.max(p - 1, 1));
   }, []);
 
-  // Touch handlers for swipe
+  // Clear flip animation after it plays
+  useEffect(() => {
+    if (flipDirection) {
+      const timer = setTimeout(() => setFlipDirection(null), 550);
+      return () => clearTimeout(timer);
+    }
+  }, [flipDirection, currentPage]);
+
+  // Touch handlers for swipe (RTL: swipe left = prev, swipe right = next)
   const handleTouchStart = useCallback((e: React.TouchEvent) => {
     touchStartX.current = e.touches[0].clientX;
+    touchStartY.current = e.touches[0].clientY;
   }, []);
 
   const handleTouchEnd = useCallback(
     (e: React.TouchEvent) => {
-      const diff = touchStartX.current - e.changedTouches[0].clientX;
-      if (Math.abs(diff) > 60) {
-        if (diff > 0) nextPage(); // swipe left = next
-        else prevPage(); // swipe right = prev
+      const diffX = touchStartX.current - e.changedTouches[0].clientX;
+      const diffY = Math.abs(touchStartY.current - e.changedTouches[0].clientY);
+      if (diffY > Math.abs(diffX)) return; // vertical scroll
+      if (Math.abs(diffX) > 50) {
+        // RTL: swipe left (diffX > 0) goes to next page (higher number)
+        if (diffX > 0) nextPage();
+        else prevPage();
       }
     },
     [nextPage, prevPage]
   );
 
-  // Play ayah audio
-  const playAyahAudio = useCallback(
-    (surahNumber: number, ayahNumber: number) => {
-      const url = getAyahAudioUrl(reciter, surahNumber, ayahNumber);
+  // Play surah audio for the ayah's surah
+  const playSurahAudio = useCallback(
+    (surahNumber: number) => {
+      const url = getSurahAudioUrl(reciter, surahNumber);
       if (audioRef.current) {
         audioRef.current.pause();
       }
@@ -177,7 +177,6 @@ const Index = () => {
     [reciter, playbackSpeed]
   );
 
-  // Ayah long press handler
   const handleAyahLongPress = useCallback((ayah: Ayah, rect: DOMRect) => {
     setContextMenu({
       ayah,
@@ -185,32 +184,34 @@ const Index = () => {
     });
   }, []);
 
-  // View change handler
   const handleChangeView = useCallback((view: ViewType) => {
     setCurrentView(view);
     if (view === 'mushaf') {
-      // Reset to mushaf
+      setRecordingTarget(null);
+      setTajweedColors(new Map());
     }
   }, []);
 
-  // Loading screen
+  // Handle word color updates from recorder
+  const handleWordColors = useCallback((colors: { wordIndex: number; color: 'correct' | 'error' | 'current' | 'pending' }[]) => {
+    if (!recordingTarget) return;
+    setTajweedColors(new Map([[recordingTarget.ayahGlobalNumber, colors]]));
+  }, [recordingTarget]);
+
+  // Loading
   if (loading) {
     return (
       <div className="flex flex-col items-center justify-center min-h-screen bg-background gap-4">
-        <img
-          src="/icon-512.png"
-          alt="إتقان"
-          className="w-24 h-24 rounded-2xl shadow-lg"
-          width={96}
-          height={96}
-        />
-        <h1 className="text-2xl font-bold font-amiri text-foreground">إتقان</h1>
-        <div className="flex items-center gap-2 text-muted-foreground">
-          <div className="w-2 h-2 rounded-full bg-accent animate-bounce" style={{ animationDelay: '0ms' }} />
-          <div className="w-2 h-2 rounded-full bg-accent animate-bounce" style={{ animationDelay: '150ms' }} />
-          <div className="w-2 h-2 rounded-full bg-accent animate-bounce" style={{ animationDelay: '300ms' }} />
+        <div className="w-16 h-16 rounded-2xl bg-primary flex items-center justify-center">
+          <span className="text-primary-foreground font-amiri font-bold text-2xl">إ</span>
         </div>
-        <p className="text-sm text-muted-foreground font-amiri">جاري تحميل المصحف الشريف...</p>
+        <h1 className="text-xl font-bold font-amiri text-foreground">إتقان</h1>
+        <div className="flex items-center gap-2">
+          <div className="w-1.5 h-1.5 rounded-full bg-accent animate-bounce" style={{ animationDelay: '0ms' }} />
+          <div className="w-1.5 h-1.5 rounded-full bg-accent animate-bounce" style={{ animationDelay: '150ms' }} />
+          <div className="w-1.5 h-1.5 rounded-full bg-accent animate-bounce" style={{ animationDelay: '300ms' }} />
+        </div>
+        <p className="text-xs text-muted-foreground font-amiri">جاري تحميل المصحف الشريف...</p>
       </div>
     );
   }
@@ -232,30 +233,25 @@ const Index = () => {
   return (
     <div
       className="min-h-screen bg-background select-none"
-      onClick={toggleUI}
-      onTouchStart={handleTouchStart}
-      onTouchEnd={handleTouchEnd}
+      onClick={currentView === 'mushaf' ? toggleUI : undefined}
+      onTouchStart={currentView === 'mushaf' ? handleTouchStart : undefined}
+      onTouchEnd={currentView === 'mushaf' ? handleTouchEnd : undefined}
     >
-      {/* Header */}
       <AppHeader
-        visible={showUI}
+        visible={showUI && currentView === 'mushaf'}
         surahName={currentSurahName}
         juz={currentJuz}
         page={currentPage}
         darkMode={darkMode}
-        learningMode={learningMode}
         onToggleDark={() => setDarkMode((d) => !d)}
-        onToggleLearning={() => setLearningMode((l) => !l)}
       />
 
-      {/* Main Content */}
-      <main className="pt-1 pb-16">
+      <main className={`${currentView === 'mushaf' ? 'pt-0 pb-14' : 'pt-1 pb-16'}`}>
         {currentView === 'mushaf' && (
           <>
             <MushafPage
               ayahs={currentAyahs}
               fontSize={fontSize}
-              learningMode={learningMode}
               onAyahLongPress={handleAyahLongPress}
               hiddenAyahs={hiddenAyahs}
               onToggleHidden={(num) => {
@@ -267,77 +263,46 @@ const Index = () => {
                 });
               }}
               pageNumber={currentPage}
-              onRecordAyah={(ayah) => {
-                setRecordingTarget({
-                  text: ayah.text,
-                  surahName: ayah.surahName,
-                  ayahNumber: ayah.numberInSurah,
-                });
-                setCurrentView('recording');
-              }}
-              onListenAyah={(ayah) => playAyahAudio(ayah.surahNumber, ayah.numberInSurah)}
+              tajweedColors={tajweedColors}
+              flipDirection={flipDirection}
             />
 
-            {/* Page navigation arrows */}
+            {/* Floating buttons */}
             <div
-              className={`fixed top-1/2 -translate-y-1/2 left-2 z-30 fade-transition ${
+              className={`fixed right-2 z-30 flex flex-col gap-2 fade-transition ${
                 showUI ? 'opacity-100' : 'opacity-0 pointer-events-none'
               }`}
+              style={{ top: '40%' }}
             >
               <button
-                onClick={(e) => {
-                  e.stopPropagation();
-                  nextPage();
-                }}
-                className="p-2 rounded-full bg-primary/80 text-primary-foreground shadow-lg"
+                onClick={(e) => { e.stopPropagation(); setDrawerOpen(true); }}
+                className="p-2 rounded-full bg-card/90 border border-border shadow-lg text-foreground hover:bg-muted transition-colors"
+                title="فهرس السور"
               >
-                <ChevronLeft size={20} />
+                <List size={16} />
               </button>
-            </div>
-            <div
-              className={`fixed top-1/2 -translate-y-1/2 right-2 z-30 fade-transition ${
-                showUI ? 'opacity-100' : 'opacity-0 pointer-events-none'
-              }`}
-            >
               <button
-                onClick={(e) => {
-                  e.stopPropagation();
-                  prevPage();
-                }}
-                className="p-2 rounded-full bg-primary/80 text-primary-foreground shadow-lg"
+                onClick={(e) => { e.stopPropagation(); setJuzOpen(true); }}
+                className="p-2 rounded-full bg-card/90 border border-border shadow-lg text-foreground hover:bg-muted transition-colors"
+                title="الأجزاء"
               >
-                <ChevronRight size={20} />
+                <Layers size={16} />
               </button>
             </div>
 
-            {/* Floating action buttons */}
-            <div
-              className={`fixed left-3 top-1/2 -translate-y-1/2 z-30 flex flex-col gap-2 fade-transition ${
-                showUI ? 'opacity-100' : 'opacity-0 pointer-events-none'
-              }`}
-              style={{ top: '35%' }}
-            >
-              <button
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setDrawerOpen(true);
+            {/* Inline recorder */}
+            {recordingTarget && (
+              <InlineRecorder
+                targetAyahText={recordingTarget.text}
+                surahName={recordingTarget.surahName}
+                ayahNumber={recordingTarget.ayahNumber}
+                onClose={() => {
+                  setRecordingTarget(null);
+                  setTajweedColors(new Map());
                 }}
-                className="p-2.5 rounded-full bg-card/90 border border-border shadow-lg text-foreground hover:bg-muted transition-colors"
-                title="فهرس السور"
-              >
-                <List size={18} />
-              </button>
-              <button
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setJuzOpen(true);
-                }}
-                className="p-2.5 rounded-full bg-card/90 border border-border shadow-lg text-foreground hover:bg-muted transition-colors"
-                title="الأجزاء"
-              >
-                <Layers size={18} />
-              </button>
-            </div>
+                onWordColors={handleWordColors}
+              />
+            )}
           </>
         )}
 
@@ -346,14 +311,6 @@ const Index = () => {
             ayahText={tajweedTarget?.text}
             surahName={tajweedTarget?.surahName}
             ayahNumber={tajweedTarget?.ayahNumber}
-          />
-        )}
-
-        {currentView === 'recording' && (
-          <RecordingPanel
-            targetAyahText={recordingTarget?.text}
-            surahName={recordingTarget?.surahName}
-            ayahNumber={recordingTarget?.ayahNumber}
           />
         )}
 
@@ -375,14 +332,12 @@ const Index = () => {
         )}
       </main>
 
-      {/* Bottom Navigation */}
       <BottomNav
         visible={showUI}
         currentView={currentView}
         onChangeView={handleChangeView}
       />
 
-      {/* Surah Drawer */}
       {quranData && (
         <SurahDrawer
           open={drawerOpen}
@@ -392,14 +347,12 @@ const Index = () => {
         />
       )}
 
-      {/* Juz List */}
       <JuzList
         open={juzOpen}
         onClose={() => setJuzOpen(false)}
         onSelectJuz={goToJuz}
       />
 
-      {/* Settings Sheet (from settings button, not bottom nav) */}
       {currentView === 'mushaf' && (
         <SettingsSheet
           open={settingsOpen}
@@ -415,20 +368,19 @@ const Index = () => {
         />
       )}
 
-      {/* Ayah Context Menu */}
       {contextMenu && (
         <AyahContextMenu
           ayah={contextMenu.ayah}
           position={contextMenu.position}
           onClose={() => setContextMenu(null)}
-          onListen={() => playAyahAudio(contextMenu.ayah.surahNumber, contextMenu.ayah.numberInSurah)}
+          onListen={() => playSurahAudio(contextMenu.ayah.surahNumber)}
           onRecord={() => {
             setRecordingTarget({
               text: contextMenu.ayah.text,
               surahName: contextMenu.ayah.surahName,
               ayahNumber: contextMenu.ayah.numberInSurah,
+              ayahGlobalNumber: contextMenu.ayah.number,
             });
-            setCurrentView('recording');
           }}
           onTajweed={() => {
             setTajweedTarget({
