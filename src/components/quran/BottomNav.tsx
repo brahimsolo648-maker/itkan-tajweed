@@ -1,6 +1,6 @@
-import { Book, BookOpen, Mic, Settings } from 'lucide-react';
+import { Book, BookOpen, Settings } from 'lucide-react';
 
-export type ViewType = 'mushaf' | 'tajweed' | 'recording' | 'settings';
+export type ViewType = 'mushaf' | 'tajweed' | 'settings';
 
 interface BottomNavProps {
   visible: boolean;
@@ -11,7 +11,6 @@ interface BottomNavProps {
 const navItems: { id: ViewType; label: string; icon: React.ElementType }[] = [
   { id: 'mushaf', label: 'المصحف', icon: Book },
   { id: 'tajweed', label: 'التجويد', icon: BookOpen },
-  { id: 'recording', label: 'التسجيل', icon: Mic },
   { id: 'settings', label: 'الإعدادات', icon: Settings },
 ];
 
@@ -29,7 +28,7 @@ export function BottomNav({ visible, currentView, onChangeView }: BottomNavProps
           <button
             key={id}
             onClick={() => onChangeView(id)}
-            className={`flex flex-col items-center gap-0.5 px-3 py-1.5 rounded-lg transition-colors ${
+            className={`flex flex-col items-center gap-0.5 px-4 py-1.5 rounded-lg transition-colors ${
               currentView === id
                 ? 'text-accent'
                 : 'text-primary-foreground/70 hover:text-primary-foreground'
