@@ -27,7 +27,7 @@ export function MushafPage({
   const longPressTimer = useRef<ReturnType<typeof setTimeout>>();
   const [pressedAyah, setPressedAyah] = useState<number | null>(null);
 
-  // Group ayahs by surah to detect surah starts
+  // Detect surah starts on this page
   const surahStarts = new Set<number>();
   let prevSurah = 0;
   for (const a of ayahs) {
@@ -37,7 +37,6 @@ export function MushafPage({
     }
   }
 
-  // Get page info
   const firstAyah = ayahs[0];
   const juz = firstAyah?.juz || 1;
   const hizbQuarter = firstAyah?.hizbQuarter || 1;
@@ -88,6 +87,12 @@ export function MushafPage({
             const isHidden = hiddenAyahs?.has(ayah.number);
             const isSelected = selectedAyahs?.has(ayah.number);
 
+            // Determine if bismillah should show:
+            // - Al-Fatiha (1): bismillah is part of ayah text (ayah 1), don't add separate
+            // - At-Tawbah (9): no bismillah at all
+            // - All others: show decorative bismillah header (not part of ayah text)
+            const showBismillahHeader = isNewSurah && ayah.surahNumber !== 1 && ayah.surahNumber !== 9;
+
             return (
               <span key={ayah.number}>
                 {isNewSurah && (
@@ -97,8 +102,7 @@ export function MushafPage({
                     </span>
                   </div>
                 )}
-                {/* Bismillah for surahs (except Al-Fatiha and At-Tawbah) */}
-                {isNewSurah && ayah.surahNumber !== 1 && ayah.surahNumber !== 9 && (
+                {showBismillahHeader && (
                   <div className="bismillah-text my-1">
                     بِسْمِ ٱللَّهِ ٱلرَّحْمَٰنِ ٱلرَّحِيمِ
                   </div>
