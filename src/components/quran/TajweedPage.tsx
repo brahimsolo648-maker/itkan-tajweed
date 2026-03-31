@@ -102,30 +102,48 @@ export function TajweedPage({ ayahText, surahName, ayahNumber }: TajweedPageProp
                       <span className="font-quran text-base">{rule.letters}</span>
                     </div>
 
-                    <div className="space-y-2">
-                      <span className="text-xs font-bold text-muted-foreground">
-                        أمثلة:
-                      </span>
-                      {rule.examples.map((ex, i) => (
-                        <div
-                          key={i}
-                          className="bg-muted/50 rounded-lg p-3 space-y-1"
-                        >
+                    {ayahText && (
+                      <div className="space-y-2">
+                        <span className="text-xs font-bold text-muted-foreground">
+                          أمثلة من الآية:
+                        </span>
+                        <div className="bg-muted/50 rounded-lg p-3">
                           <div
                             className="font-quran text-lg text-foreground"
                             style={{ color: rule.color }}
+                            dir="rtl"
                           >
-                            {ex.text}
-                          </div>
-                          <div className="text-xs text-muted-foreground">
-                            {ex.surah}
-                          </div>
-                          <div className="text-xs text-foreground/70">
-                            {ex.explanation}
+                            {ayahText}
                           </div>
                         </div>
-                      ))}
-                    </div>
+                      </div>
+                    )}
+                    {!ayahText && (
+                      <div className="space-y-2">
+                        <span className="text-xs font-bold text-muted-foreground">
+                          أمثلة:
+                        </span>
+                        {rule.examples.map((ex, i) => (
+                          <div
+                            key={i}
+                            className="bg-muted/50 rounded-lg p-3 space-y-1"
+                          >
+                            <div
+                              className="font-quran text-lg text-foreground"
+                              style={{ color: rule.color }}
+                            >
+                              {ex.text}
+                            </div>
+                            <div className="text-xs text-muted-foreground">
+                              {ex.surah}
+                            </div>
+                            <div className="text-xs text-foreground/70">
+                              {ex.explanation}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
                   </div>
                 )}
               </div>

@@ -154,9 +154,9 @@ const Index = () => {
       const diffY = Math.abs(touchStartY.current - e.changedTouches[0].clientY);
       if (diffY > Math.abs(diffX)) return; // vertical scroll
       if (Math.abs(diffX) > 50) {
-        // RTL: swipe left (diffX > 0) goes to next page (higher number)
-        if (diffX > 0) nextPage();
-        else prevPage();
+        // RTL: swipe left (diffX > 0) goes to prev page, swipe right goes to next
+        if (diffX > 0) prevPage();
+        else nextPage();
       }
     },
     [nextPage, prevPage]

@@ -125,7 +125,7 @@ export async function fetchQuranData(): Promise<QuranData> {
 
 export function toArabicNumeral(n: number | undefined | null): string {
   if (n == null) return '';
-  return n.toString().replace(/\d/g, (d) => '٠١٢٣٤٥٦٧٨٩'[parseInt(d)]);
+  return n.toString();
 }
 
 export function padSurahNumber(n: number): string {

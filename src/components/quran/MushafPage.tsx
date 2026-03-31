@@ -97,12 +97,6 @@ export function MushafPage({
                     </span>
                   </div>
                 )}
-                {/* Bismillah for surahs (except Al-Fatiha and At-Tawbah) */}
-                {isNewSurah && ayah.surahNumber !== 1 && ayah.surahNumber !== 9 && (
-                  <div className="bismillah-text my-1">
-                    بِسْمِ ٱللَّهِ ٱلرَّحْمَٰنِ ٱلرَّحِيمِ
-                  </div>
-                )}
                 {isHidden ? (
                   <span
                     className="ayah-text inline cursor-pointer"
