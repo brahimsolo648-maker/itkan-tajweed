@@ -15,6 +15,7 @@ import { SurahDrawer } from '@/components/quran/SurahDrawer';
 import { SettingsSheet } from '@/components/quran/SettingsSheet';
 import { TajweedPage } from '@/components/quran/TajweedPage';
 import { InlineRecorder } from '@/components/quran/InlineRecorder';
+import { ResultsPage } from '@/components/quran/ResultsPage';
 import { JuzList } from '@/components/quran/JuzList';
 import { AyahContextMenu } from '@/components/quran/AyahContextMenu';
 import { List, Layers } from 'lucide-react';
@@ -46,7 +47,17 @@ const Index = () => {
     ayahGlobalNumber: number;
   } | null>(null);
 
-  // Tajweed word colors (ayah number -> word colors)
+  // Results page data
+  const [analysisResult, setAnalysisResult] = useState<{
+    score: number;
+    words: { word: string; correct: boolean; correction?: string }[];
+    feedback: string;
+    ayahText: string;
+    surahName: string;
+    ayahNumber: number;
+  } | null>(null);
+
+  // Tajweed word colors
   const [tajweedColors, setTajweedColors] = useState<
     Map<number, { wordIndex: number; color: 'correct' | 'error' | 'current' | 'pending' }[]>
   >(new Map());
@@ -56,7 +67,7 @@ const Index = () => {
     () => localStorage.getItem('itqan-dark') === 'true'
   );
   const [reciter, setReciter] = useState<ReciterId>(
-    () => (localStorage.getItem('itqan-reciter') as ReciterId) || 'alaa'
+    () => (localStorage.getItem('itqan-reciter') as ReciterId) || 'husary_warsh'
   );
   const [fontSize, setFontSize] = useState(
     () => Number(localStorage.getItem('itqan-font-size')) || 24
@@ -109,7 +120,7 @@ const Index = () => {
     if (!quranData) return;
     const page = quranData.surahFirstPage.get(surahNumber);
     if (page) {
-      setFlipDirection('right');
+      setFlipDirection('left');
       setCurrentPage(page);
     }
   }, [quranData]);
@@ -118,23 +129,27 @@ const Index = () => {
     if (!quranData) return;
     const page = quranData.juzFirstPage.get(juz);
     if (page) {
-      setFlipDirection('right');
+      setFlipDirection('left');
       setCurrentPage(page);
     }
   }, [quranData]);
 
+  // RTL navigation: swipe left = next page (higher number = backward in Arabic)
+  // In Arabic Mushaf: right = forward (lower page), left = backward (higher page)
+  // So: swipe right (diffX < 0) = go to NEXT page (higher number)
+  //     swipe left (diffX > 0) = go to PREVIOUS page (lower number)
   const nextPage = useCallback(() => {
     if (!quranData) return;
-    setFlipDirection('right');
+    setFlipDirection('left');
     setCurrentPage((p) => Math.min(p + 1, quranData.totalPages));
   }, [quranData]);
 
   const prevPage = useCallback(() => {
-    setFlipDirection('left');
+    setFlipDirection('right');
     setCurrentPage((p) => Math.max(p - 1, 1));
   }, []);
 
-  // Clear flip animation after it plays
+  // Clear flip animation
   useEffect(() => {
     if (flipDirection) {
       const timer = setTimeout(() => setFlipDirection(null), 550);
@@ -142,7 +157,7 @@ const Index = () => {
     }
   }, [flipDirection, currentPage]);
 
-  // Touch handlers for swipe (RTL: swipe left = prev, swipe right = next)
+  // Touch handlers - RTL: swipe right = prev (lower page), swipe left = next (higher page)
   const handleTouchStart = useCallback((e: React.TouchEvent) => {
     touchStartX.current = e.touches[0].clientX;
     touchStartY.current = e.touches[0].clientY;
@@ -152,9 +167,9 @@ const Index = () => {
     (e: React.TouchEvent) => {
       const diffX = touchStartX.current - e.changedTouches[0].clientX;
       const diffY = Math.abs(touchStartY.current - e.changedTouches[0].clientY);
-      if (diffY > Math.abs(diffX)) return; // vertical scroll
+      if (diffY > Math.abs(diffX)) return;
       if (Math.abs(diffX) > 50) {
-        // RTL: swipe left (diffX > 0) goes to next page (higher number)
+        // RTL Mushaf: swipe left (diffX > 0) = go forward = higher page number
         if (diffX > 0) nextPage();
         else prevPage();
       }
@@ -162,7 +177,6 @@ const Index = () => {
     [nextPage, prevPage]
   );
 
-  // Play surah audio for the ayah's surah
   const playSurahAudio = useCallback(
     (surahNumber: number) => {
       const url = getSurahAudioUrl(reciter, surahNumber);
@@ -189,16 +203,27 @@ const Index = () => {
     if (view === 'mushaf') {
       setRecordingTarget(null);
       setTajweedColors(new Map());
+      setAnalysisResult(null);
     }
   }, []);
 
-  // Handle word color updates from recorder
   const handleWordColors = useCallback((colors: { wordIndex: number; color: 'correct' | 'error' | 'current' | 'pending' }[]) => {
     if (!recordingTarget) return;
     setTajweedColors(new Map([[recordingTarget.ayahGlobalNumber, colors]]));
   }, [recordingTarget]);
 
-  // Loading
+  // Handle analysis complete - show results page
+  const handleAnalysisComplete = useCallback((result: { score: number; words: { word: string; correct: boolean; correction?: string }[]; feedback: string }) => {
+    if (!recordingTarget) return;
+    setAnalysisResult({
+      ...result,
+      ayahText: recordingTarget.text,
+      surahName: recordingTarget.surahName,
+      ayahNumber: recordingTarget.ayahNumber,
+    });
+    setRecordingTarget(null);
+  }, [recordingTarget]);
+
   if (loading) {
     return (
       <div className="flex flex-col items-center justify-center min-h-screen bg-background gap-4">
@@ -301,6 +326,30 @@ const Index = () => {
                   setTajweedColors(new Map());
                 }}
                 onWordColors={handleWordColors}
+                onAnalysisComplete={handleAnalysisComplete}
+              />
+            )}
+
+            {/* Results overlay */}
+            {analysisResult && (
+              <ResultsPage
+                score={analysisResult.score}
+                words={analysisResult.words}
+                feedback={analysisResult.feedback}
+                ayahText={analysisResult.ayahText}
+                surahName={analysisResult.surahName}
+                ayahNumber={analysisResult.ayahNumber}
+                onClose={() => setAnalysisResult(null)}
+                onRetry={() => {
+                  const result = analysisResult;
+                  setAnalysisResult(null);
+                  setRecordingTarget({
+                    text: result.ayahText,
+                    surahName: result.surahName,
+                    ayahNumber: result.ayahNumber,
+                    ayahGlobalNumber: 0,
+                  });
+                }}
               />
             )}
           </>

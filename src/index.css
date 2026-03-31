@@ -88,11 +88,11 @@
 
 /* ===== Quran Font Classes ===== */
 .font-quran {
-  font-family: 'Amiri Quran', 'Amiri', serif;
+  font-family: 'Noto Naskh Arabic', 'Amiri Quran', 'Amiri', serif;
 }
 
 .ayah-text {
-  font-family: 'Amiri Quran', 'Amiri', serif;
+  font-family: 'Noto Naskh Arabic', 'Amiri Quran', 'Amiri', serif;
   line-height: 2.4;
   text-align: justify;
   direction: rtl;
