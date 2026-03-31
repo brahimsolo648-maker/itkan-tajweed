@@ -1,6 +1,7 @@
 import { useState, useRef, useCallback, useEffect } from 'react';
 import { analyzeTajweed, type TajweedAnalysis } from '@/lib/gemini';
 import { Mic, Square, X, Loader2 } from 'lucide-react';
+import { Progress } from '@/components/ui/progress';
 
 interface InlineRecorderProps {
   targetAyahText: string;
@@ -8,7 +9,6 @@ interface InlineRecorderProps {
   ayahNumber: number;
   onClose: () => void;
   onWordColors?: (colors: { wordIndex: number; color: 'correct' | 'error' | 'current' | 'pending' }[]) => void;
-  onAnalysisComplete?: (result: TajweedAnalysis) => void;
 }
 
 export function InlineRecorder({
@@ -17,16 +17,16 @@ export function InlineRecorder({
   ayahNumber,
   onClose,
   onWordColors,
-  onAnalysisComplete,
 }: InlineRecorderProps) {
   const [isRecording, setIsRecording] = useState(false);
   const [transcript, setTranscript] = useState('');
+  const [analysis, setAnalysis] = useState<TajweedAnalysis | null>(null);
   const [analyzing, setAnalyzing] = useState(false);
   const [error, setError] = useState('');
   const recognitionRef = useRef<any>(null);
   const autoAnalyzeRef = useRef(false);
 
-  // Live word tracking during recording
+  // Live word tracking
   useEffect(() => {
     if (!isRecording || !transcript) return;
     const spokenWords = transcript.trim().split(/\s+/).filter(Boolean);
@@ -46,8 +46,28 @@ export function InlineRecorder({
     onWordColors?.(colors);
   }, [transcript, isRecording, targetAyahText, onWordColors]);
 
+  // Apply analysis colors
+  useEffect(() => {
+    if (!analysis) return;
+    const originalWords = targetAyahText.split(/\s+/).filter(Boolean);
+    const colors: { wordIndex: number; color: 'correct' | 'error' | 'current' | 'pending' }[] = [];
+
+    originalWords.forEach((_, i) => {
+      const analysisWord = analysis.words[i];
+      if (analysisWord) {
+        colors.push({
+          wordIndex: i,
+          color: analysisWord.correct ? 'correct' : 'error',
+        });
+      }
+    });
+
+    onWordColors?.(colors);
+  }, [analysis, targetAyahText, onWordColors]);
+
   const startRecording = useCallback(() => {
     setError('');
+    setAnalysis(null);
     setTranscript('');
     onWordColors?.([]);
 
@@ -117,28 +137,18 @@ export function InlineRecorder({
     setError('');
     try {
       const result = await analyzeTajweed(targetAyahText, transcript);
-      // Apply colors from analysis
-      const originalWords = targetAyahText.split(/\s+/).filter(Boolean);
-      const colors: { wordIndex: number; color: 'correct' | 'error' | 'current' | 'pending' }[] = [];
-      originalWords.forEach((_, i) => {
-        const analysisWord = result.words[i];
-        if (analysisWord) {
-          colors.push({ wordIndex: i, color: analysisWord.correct ? 'correct' : 'error' });
-        }
-      });
-      onWordColors?.(colors);
-      // Navigate to results page
-      onAnalysisComplete?.(result);
+      setAnalysis(result);
     } catch {
       setError('فشل في تحليل التلاوة.');
     } finally {
       setAnalyzing(false);
     }
-  }, [transcript, targetAyahText, onWordColors, onAnalysisComplete]);
+  }, [transcript, targetAyahText]);
 
   return (
     <div className="recording-overlay slide-up">
       <div className="p-4">
+        {/* Handle + Close */}
         <div className="flex items-center justify-between mb-3">
           <div className="mx-auto h-1 w-10 rounded-full bg-muted" />
           <button onClick={onClose} className="absolute left-4 p-1 rounded-full hover:bg-muted">
@@ -146,10 +156,12 @@ export function InlineRecorder({
           </button>
         </div>
 
+        {/* Ayah info */}
         <div className="text-xs text-muted-foreground text-center mb-3 font-amiri">
           {surahName} - آية {ayahNumber}
         </div>
 
+        {/* Recording Controls */}
         <div className="flex items-center justify-center gap-4 mb-3">
           <button
             onClick={isRecording ? stopRecording : startRecording}
@@ -174,6 +186,8 @@ export function InlineRecorder({
               <Loader2 className="animate-spin" size={12} />
               جاري تحليل التلاوة...
             </span>
+          ) : analysis ? (
+            'اكتمل التحليل'
           ) : (
             'اضغط للتسجيل وقراءة الآية'
           )}
@@ -182,6 +196,50 @@ export function InlineRecorder({
         {error && (
           <div className="bg-destructive/10 text-destructive rounded-lg p-2 text-xs font-amiri text-center mb-2">
             {error}
+          </div>
+        )}
+
+        {/* Analysis Results */}
+        {analysis && (
+          <div className="space-y-2">
+            <div className="flex items-center gap-3">
+              <div className="text-2xl font-bold text-foreground">{analysis.score}%</div>
+              <Progress value={analysis.score} className="flex-1 h-2" />
+            </div>
+
+            {analysis.feedback && (
+              <div className="bg-muted/50 rounded-lg p-2 text-xs font-amiri text-foreground/80 leading-relaxed" dir="rtl">
+                {analysis.feedback}
+              </div>
+            )}
+
+            {/* Word-by-word results */}
+            <div className="flex flex-wrap gap-1 justify-center" dir="rtl">
+              {analysis.words.map((w, i) => (
+                <span
+                  key={i}
+                  className={`px-1 py-0.5 rounded text-sm font-quran ${
+                    w.correct
+                      ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300'
+                      : 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300'
+                  }`}
+                  title={w.correction || ''}
+                >
+                  {w.word}
+                </span>
+              ))}
+            </div>
+
+            <button
+              onClick={() => {
+                setAnalysis(null);
+                setTranscript('');
+                onWordColors?.([]);
+              }}
+              className="w-full py-2 rounded-lg border border-border text-sm font-amiri hover:bg-muted transition-colors"
+            >
+              إعادة التسجيل
+            </button>
           </div>
         )}
       </div>

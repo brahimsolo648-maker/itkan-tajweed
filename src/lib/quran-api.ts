@@ -32,23 +32,10 @@ const FALLBACK_API = 'https://cdn.jsdelivr.net/npm/quran-json@latest/dist/quran_
 const BISMILLAH_PREFIX = 'بِسْمِ اللَّهِ الرَّحْمَٰنِ الرَّحِيمِ';
 
 export function stripBismillah(text: string, surahNumber: number, numberInSurah: number): string {
-  // Only strip from first ayah, never from Al-Fatiha (1) or At-Tawbah (9)
   if (numberInSurah !== 1 || surahNumber === 1 || surahNumber === 9) return text;
   let cleaned = text.replace(/^\uFEFF/, '');
   if (cleaned.startsWith(BISMILLAH_PREFIX)) {
     cleaned = cleaned.slice(BISMILLAH_PREFIX.length).trim();
-  }
-  // Also try alternate bismillah patterns
-  const altPatterns = [
-    'بِسۡمِ ٱللَّهِ ٱلرَّحۡمَـٰنِ ٱلرَّحِیمِ',
-    'بِسْمِ ٱللَّهِ ٱلرَّحْمَـٰنِ ٱلرَّحِيمِ',
-    'بِسۡمِ ٱللَّهِ ٱلرَّحۡمَٰنِ ٱلرَّحِیمِ',
-  ];
-  for (const pat of altPatterns) {
-    if (cleaned.startsWith(pat)) {
-      cleaned = cleaned.slice(pat.length).trim();
-      break;
-    }
   }
   return cleaned;
 }
@@ -156,19 +143,24 @@ export function getHizbQuarterLabel(hizbQuarter: number): string {
 
 // ============ Warsh-only reciters ============
 export const RECITERS = {
-  husary_warsh: {
-    name: 'محمود خليل الحصري (ورش)',
-    baseUrl: 'https://server13.mp3quran.net/husr3/',
+  alaa: {
+    name: 'العين آلاء',
+    baseUrl: 'https://server7.mp3quran.net/alaa/',
     type: 'surah' as const,
   },
-  warsh_ibrahim: {
-    name: 'إبراهيم الدوسري (ورش)',
-    baseUrl: 'https://server6.mp3quran.net/warsh/',
+  hudhaify_warsh: {
+    name: 'أحمد الحذيفي (ورش)',
+    baseUrl: 'https://server8.mp3quran.net/huthfi_w/',
     type: 'surah' as const,
   },
   agmy: {
     name: 'ياسين الجزائري (ورش)',
     baseUrl: 'https://server11.mp3quran.net/yasser/',
+    type: 'surah' as const,
+  },
+  warsh_ibrahim: {
+    name: 'إبراهيم الدوسري (ورش)',
+    baseUrl: 'https://server6.mp3quran.net/warsh/',
     type: 'surah' as const,
   },
 } as const;
@@ -181,6 +173,7 @@ export function getSurahAudioUrl(reciter: ReciterId, surahNumber: number): strin
   return `${r.baseUrl}${s}.mp3`;
 }
 
+// For ayah-level, we use surah audio (no per-ayah Warsh sources available)
 export function getAyahAudioUrl(reciter: ReciterId, surahNumber: number, _ayahNumber: number): string {
   return getSurahAudioUrl(reciter, surahNumber);
 }
